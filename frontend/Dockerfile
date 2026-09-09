@@ -1,18 +1,26 @@
-FROM node:18.16.1-alpine
+# =========================
+# Stage 1: Build React app
+# =========================
+FROM node:18.16.1-alpine AS builder
 
-# Add a work directory
 WORKDIR /app
 
-# Cache and Install dependencies
 COPY package.json package-lock.json ./
-RUN npm install
 
-# Copy app files
+RUN npm ci
+
 COPY . .
 
-# RUN npm install -g vite@4.1.0
-RUN npm install
-# Expose port
-EXPOSE 8000
-# Start the app
-CMD [ "npm", "run", "dev" ]
+RUN npm run build
+
+
+# =========================
+# Stage 2: Nginx
+# =========================
+FROM nginx:alpine
+
+COPY --from=builder /app/dist /usr/share/nginx/html
+
+EXPOSE 80
+
+CMD ["nginx", "-g", "daemon off;"]

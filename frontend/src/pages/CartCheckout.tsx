@@ -147,7 +147,7 @@ const CartCheckout:React.FC = () => {
                     <StyledTableCell align="center">{row.title}</StyledTableCell>
                     <StyledTableCell align="center">{row.rating}</StyledTableCell>
                     <StyledTableCell align="center">{row.genre}</StyledTableCell>
-                    <StyledTableCell align="center">runtime: {row.runtime}</StyledTableCell>
+                    <StyledTableCell align="center">runtime: {row.runTime}</StyledTableCell>
                     <StyledTableCell align="center">Director:{row.director}</StyledTableCell>
                     <StyledTableCell align="center">
                         <Button onClick={() => removeMediaFromCart(row.media_id ? row.media_id : -1)} size="large">

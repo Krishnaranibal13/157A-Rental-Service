@@ -1,6 +1,6 @@
 import axios from 'axios';
 export const environment = {
-    baseAPIURL: "http://localhost:8000",
+    baseAPIURL: "/api",
 };
 
 
