@@ -21,7 +21,7 @@ pipeline {
                 echo 'Updating application source code...'
 
                 sh '''
-                    rsync -rltv --delete \
+                    rsync -rv --delete \
                     --exclude='.env' \
                     --exclude='.git' \
                     --exclude='node_modules' \
