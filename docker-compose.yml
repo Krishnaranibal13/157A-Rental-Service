@@ -1,116 +1,59 @@
-pipeline {
+services:
 
-    agent any
+  db:
+    container_name: rental-mysql
+    image: mysql:8.0
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+    volumes:
+      - mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-p${MYSQL_ROOT_PASSWORD}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
 
-    environment {
-        APP_DIR = '/home/ubuntu/157A-Rental-Service'
-    }
+  backend:
+    container_name: rental-backend
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      PROJECT_NAME: ${PROJECT_NAME}
+      SECRET_KEY: ${SECRET_KEY}
+      ENVIRONMENT: ${ENVIRONMENT}
+      BACKEND_CORS_ORIGINS: ${BACKEND_CORS_ORIGINS}
+      ACCESS_TOKEN_EXPIRE_MINUTES: ${ACCESS_TOKEN_EXPIRE_MINUTES}
+      MYSQL_HOST: ${MYSQL_HOST}
+      MYSQL_PORT: ${MYSQL_PORT}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+      MYSQL_DB: ${MYSQL_DATABASE}
 
-    stages {
+  frontend:
+    container_name: rental-frontend
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    restart: unless-stopped
 
-        stage('Checkout') {
-            steps {
-                echo 'Checking out latest source code...'
+  nginx:
+    container_name: rental-nginx
+    image: nginx:alpine
+    restart: unless-stopped
+    ports:
+      - "${NGINX_PORT}:80"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      - frontend
+      - backend
 
-                checkout scm
-            }
-        }
-
-        stage('Deploy Source Code') {
-            steps {
-                echo 'Updating application source code...'
-
-                sh '''
-                    rsync -av --delete \
-                    --exclude='.env' \
-                    --exclude='.git' \
-                    --exclude='node_modules' \
-                    --exclude='dist' \
-                    ./ ${APP_DIR}/
-                '''
-            }
-        }
-
-        stage('Build Docker Images') {
-            steps {
-                echo 'Building Docker images...'
-
-                sh '''
-                    cd ${APP_DIR}
-
-                    docker compose build
-                '''
-            }
-        }
-
-        stage('Deploy Containers') {
-            steps {
-                echo 'Starting application containers...'
-
-                sh '''
-                    cd ${APP_DIR}
-
-                    docker compose up -d
-                '''
-            }
-        }
-
-        stage('Wait for Services') {
-            steps {
-                sh '''
-                    echo "Waiting for services..."
-                    sleep 15
-
-                    cd ${APP_DIR}
-
-                    docker compose ps
-                '''
-            }
-        }
-
-        stage('Application Health Check') {
-            steps {
-                sh '''
-                    echo "Checking application..."
-
-                    curl -f http://localhost/ || exit 1
-
-                    echo "Application health check successful."
-                '''
-            }
-        }
-    }
-
-    post {
-
-        success {
-            echo '''
-            ==========================================
-            DEPLOYMENT SUCCESSFUL
-            ==========================================
-            Application is running on port 80.
-            ==========================================
-            '''
-        }
-
-        failure {
-            echo '''
-            ==========================================
-            DEPLOYMENT FAILED
-            ==========================================
-            Collecting container logs...
-            ==========================================
-            '''
-
-            sh '''
-                cd ${APP_DIR} || true
-
-                docker compose ps || true
-
-                docker compose logs --tail=50 backend || true
-
-                docker compose logs --tail=50 nginx || true
-            '''
-        }
-    }
-}
+volumes:
+  mysql_data:
